@@ -46,7 +46,6 @@ export const ProfileView: React.FC = () => {
     user,
     profile,
     settings,
-    isDemoMode,
     signOut,
     updateProfile,
     updateSettings,
@@ -117,9 +116,7 @@ export const ProfileView: React.FC = () => {
       {/* Terminal Header */}
       <div className="px-3 py-2 rounded border border-[#1f2421] bg-[#070b08] text-xs text-zinc-400 flex items-center justify-between">
         <span>$ user --config --show</span>
-        <span className="text-[#4ADE65] font-semibold">
-          {isDemoMode ? '[DEMO_MODE]' : '[AUTHENTICATED]'}
-        </span>
+        <span className="text-[#4ADE65] font-semibold">[AUTHENTICATED]</span>
       </div>
 
       {/* Main Profile Form */}
@@ -286,15 +283,7 @@ export const ProfileView: React.FC = () => {
           <span>Storage & Cloud Database Architecture</span>
         </div>
         <p className="text-zinc-400 text-[11px] leading-relaxed">
-          {isDemoMode ? (
-            <>
-              You are currently using <strong>Local Terminal Sandbox Mode</strong>. All habits and completions are stored in your device&apos;s isolated storage. To enable multi-device sync, connect your free Supabase project via environment variables.
-            </>
-          ) : (
-            <>
-              Connected to <strong>Supabase PostgreSQL</strong>. Row Level Security (RLS) is active. All habit rows, completion timestamps, and XP ledger transactions are cryptographically isolated to your authenticated user UID.
-            </>
-          )}
+          Connected to <strong>Supabase PostgreSQL</strong>. Row Level Security (RLS) is active. All habit rows, completion timestamps, and XP ledger transactions are cryptographically isolated to your authenticated user UID.
         </p>
       </div>
 

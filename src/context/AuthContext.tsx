@@ -9,7 +9,6 @@ interface AuthContextType {
   profile: Profile | null;
   settings: UserSettings | null;
   loading: boolean;
-  isDemoMode: boolean;
   connectionStatus: SupabaseConnectionStatus;
   signUp: (email: string, password: string) => Promise<{ error: Error | null; needsConfirmation?: boolean }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
@@ -18,34 +17,10 @@ interface AuthContextType {
   updateProfile: (updates: Partial<Profile>) => Promise<{ error: Error | null }>;
   updateSettings: (updates: Partial<UserSettings>) => Promise<{ error: Error | null }>;
   deleteAccount: () => Promise<{ error: Error | null }>;
-  enableDemoMode: () => void;
   refreshUserData: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-const DEMO_USER_ID = 'demo-terminal-user-0001';
-
-const DEFAULT_DEMO_PROFILE: Profile = {
-  id: DEMO_USER_ID,
-  username: 'developer',
-  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString(),
-};
-
-const DEFAULT_DEMO_SETTINGS: UserSettings = {
-  user_id: DEMO_USER_ID,
-  daily_goal: 70,
-  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
-  preferences: {
-    theme: 'neon-green',
-    sound_enabled: false,
-    compact_view: true,
-    developer_quotes: true,
-  },
-  updated_at: new Date().toISOString(),
-};
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -53,7 +28,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<Profile | null>(null);
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isDemoMode, setIsDemoMode] = useState(!isSupabaseConfigured);
   const [connectionStatus, setConnectionStatus] = useState<SupabaseConnectionStatus>(
     isSupabaseConfigured ? 'checking' : 'unconfigured'
   );
@@ -70,7 +44,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (profileData) {
         setProfile(profileData as Profile);
       } else if (profileError && profileError.code === 'PGRST116') {
-        // Record not found - fallback insert
         const fallbackUsername = user?.email ? user.email.split('@')[0] : 'user';
         const newProfile: Partial<Profile> = {
           id: userId,
@@ -115,21 +88,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     async function initAuth() {
       if (!isSupabaseConfigured) {
-        // Run in local terminal demo mode
-        setIsDemoMode(true);
         setConnectionStatus('unconfigured');
-        const storedProfile = localStorage.getItem('init_habits_demo_profile');
-        const storedSettings = localStorage.getItem('init_habits_demo_settings');
-        setProfile(storedProfile ? JSON.parse(storedProfile) : DEFAULT_DEMO_PROFILE);
-        setSettings(storedSettings ? JSON.parse(storedSettings) : DEFAULT_DEMO_SETTINGS);
-        setUser({
-          id: DEMO_USER_ID,
-          app_metadata: {},
-          user_metadata: { username: 'developer' },
-          aud: 'authenticated',
-          created_at: new Date().toISOString(),
-          email: 'developer@init.habits',
-        } as User);
+        setUser(null);
+        setSession(null);
         setLoading(false);
         return;
       }
@@ -144,29 +105,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (initialSession) {
         setSession(initialSession);
         setUser(initialSession.user);
-        setIsDemoMode(false);
         await fetchProfileAndSettings(initialSession.user.id);
       } else {
-        // Check if user specifically requested demo mode locally
-        const demoPreference = localStorage.getItem('init_habits_use_demo');
-        if (demoPreference === 'true') {
-          setIsDemoMode(true);
-          const storedProfile = localStorage.getItem('init_habits_demo_profile');
-          const storedSettings = localStorage.getItem('init_habits_demo_settings');
-          setProfile(storedProfile ? JSON.parse(storedProfile) : DEFAULT_DEMO_PROFILE);
-          setSettings(storedSettings ? JSON.parse(storedSettings) : DEFAULT_DEMO_SETTINGS);
-          setUser({
-            id: DEMO_USER_ID,
-            app_metadata: {},
-            user_metadata: { username: 'developer' },
-            aud: 'authenticated',
-            created_at: new Date().toISOString(),
-            email: 'developer@init.habits',
-          } as User);
-        } else {
-          setUser(null);
-          setSession(null);
-        }
+        setUser(null);
+        setSession(null);
       }
       setLoading(false);
 
@@ -176,7 +118,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setSession(newSession);
           setUser(newSession?.user || null);
           if (newSession?.user) {
-            setIsDemoMode(false);
             await fetchProfileAndSettings(newSession.user.id);
           } else {
             setProfile(null);
@@ -197,24 +138,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const enableDemoMode = () => {
-    localStorage.setItem('init_habits_use_demo', 'true');
-    setIsDemoMode(true);
-    setUser({
-      id: DEMO_USER_ID,
-      app_metadata: {},
-      user_metadata: { username: 'developer' },
-      aud: 'authenticated',
-      created_at: new Date().toISOString(),
-      email: 'developer@init.habits',
-    } as User);
-    setProfile(DEFAULT_DEMO_PROFILE);
-    setSettings(DEFAULT_DEMO_SETTINGS);
-  };
-
   const signUp = async (email: string, password: string) => {
     if (!isSupabaseConfigured) {
-      return { error: new Error('Supabase is not configured. Please add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY to .env') };
+      return { error: new Error('Supabase is not configured. Please connect Supabase URL and Publishable Key.') };
     }
 
     try {
@@ -237,7 +163,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signIn = async (email: string, password: string) => {
     if (!isSupabaseConfigured) {
-      return { error: new Error('Supabase is not configured.') };
+      return { error: new Error('Supabase is not configured. Please connect Supabase credentials.') };
     }
 
     try {
@@ -247,8 +173,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (error) return { error };
-      localStorage.removeItem('init_habits_use_demo');
-      setIsDemoMode(false);
       return { error: null };
     } catch (err: unknown) {
       return { error: err instanceof Error ? err : new Error('Login failed') };
@@ -256,14 +180,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
-    if (isDemoMode) {
-      localStorage.removeItem('init_habits_use_demo');
-      setUser(null);
-      setProfile(null);
-      setSettings(null);
-      return;
-    }
-
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
@@ -287,13 +203,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateProfile = async (updates: Partial<Profile>) => {
-    if (isDemoMode) {
-      const updated = { ...profile, ...updates, updated_at: new Date().toISOString() } as Profile;
-      setProfile(updated);
-      localStorage.setItem('init_habits_demo_profile', JSON.stringify(updated));
-      return { error: null };
-    }
-
     if (!user) return { error: new Error('Not authenticated') };
 
     try {
@@ -313,13 +222,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateSettings = async (updates: Partial<UserSettings>) => {
-    if (isDemoMode) {
-      const updated = { ...settings, ...updates, updated_at: new Date().toISOString() } as UserSettings;
-      setSettings(updated);
-      localStorage.setItem('init_habits_demo_settings', JSON.stringify(updated));
-      return { error: null };
-    }
-
     if (!user) return { error: new Error('Not authenticated') };
 
     try {
@@ -339,22 +241,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deleteAccount = async () => {
-    if (isDemoMode) {
-      localStorage.removeItem('init_habits_demo_profile');
-      localStorage.removeItem('init_habits_demo_settings');
-      localStorage.removeItem('init_habits_demo_habits');
-      localStorage.removeItem('init_habits_demo_completions');
-      localStorage.removeItem('init_habits_demo_xp');
-      await signOut();
-      return { error: null };
-    }
-
     if (!user) return { error: new Error('Not authenticated') };
 
     try {
-      // In Supabase, deleting habits/completions/profiles is cascade-handled by user deletion,
-      // but client-side users can clear their data or call an administrative edge function.
-      // We first clean user rows:
       await supabase.from('habits').delete().eq('user_id', user.id);
       await supabase.from('habit_completions').delete().eq('user_id', user.id);
       await supabase.from('profiles').delete().eq('id', user.id);
@@ -367,7 +256,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const refreshUserData = async () => {
-    if (user && !isDemoMode) {
+    if (user) {
       await fetchProfileAndSettings(user.id);
     }
   };
@@ -380,7 +269,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         profile,
         settings,
         loading,
-        isDemoMode,
         connectionStatus,
         signUp,
         signIn,
@@ -389,7 +277,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateProfile,
         updateSettings,
         deleteAccount,
-        enableDemoMode,
         refreshUserData,
       }}
     >

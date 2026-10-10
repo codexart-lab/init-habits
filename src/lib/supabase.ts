@@ -77,7 +77,7 @@ export const supabase: SupabaseClient = config.isConfigured
       },
     });
 
-export type SupabaseConnectionStatus = 'checking' | 'connected' | 'error' | 'unconfigured' | 'demo_mode';
+export type SupabaseConnectionStatus = 'checking' | 'connected' | 'error' | 'unconfigured';
 
 /**
  * Real connectivity health-check against Supabase.

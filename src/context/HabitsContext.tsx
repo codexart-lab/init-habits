@@ -42,7 +42,7 @@ interface HabitsContextType {
 const HabitsContext = createContext<HabitsContextType | undefined>(undefined);
 
 export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, isDemoMode, settings } = useAuth();
+  const { user, settings } = useAuth();
 
   const userTimezone = settings?.timezone || 'UTC';
   const todayDateStr = useMemo(() => getTodayDateString(userTimezone), [userTimezone]);
@@ -72,7 +72,7 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setSelectedDate(todayDateStr);
   }, [todayDateStr]);
 
-  // Load habits and completions
+  // Load habits and completions strictly from Supabase
   const fetchData = useCallback(async () => {
     if (!user) {
       setHabits([]);
@@ -85,60 +85,6 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setLoading(true);
     setError(null);
 
-    if (isDemoMode) {
-      const storedHabits = localStorage.getItem('init_habits_demo_habits');
-      const storedCompletions = localStorage.getItem('init_habits_demo_completions');
-      const storedXp = localStorage.getItem('init_habits_demo_xp');
-
-      let parsedHabits: Habit[] = storedHabits ? JSON.parse(storedHabits) : [];
-      let parsedCompletions: HabitCompletion[] = storedCompletions ? JSON.parse(storedCompletions) : [];
-
-      if (parsedHabits.length === 0) {
-        // Auto-seed default starter habits for fresh demo mode experience
-        parsedHabits = DEFAULT_STARTER_HABITS.map((h, i) => ({
-          id: `demo-habit-${i + 1}`,
-          user_id: user.id,
-          name: h.name,
-          emoji: h.emoji,
-          description: h.description,
-          category: h.category,
-          target_value: h.target_value,
-          target_unit: h.target_unit,
-          is_active: true,
-          is_favorite: h.is_favorite,
-          position: i + 1,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }));
-        localStorage.setItem('init_habits_demo_habits', JSON.stringify(parsedHabits));
-
-        // Seed sample completions for the past 5 days
-        parsedCompletions = [];
-        for (let dayOffset = 0; dayOffset < 5; dayOffset++) {
-          const compDate = addDaysToDateString(todayDateStr, -dayOffset);
-          parsedHabits.slice(0, 6 - dayOffset).forEach((hab, hIdx) => {
-            parsedCompletions.push({
-              id: `demo-comp-${dayOffset}-${hIdx}`,
-              user_id: user.id,
-              habit_id: hab.id,
-              completed_on: compDate,
-              created_at: new Date().toISOString(),
-            });
-          });
-        }
-        localStorage.setItem('init_habits_demo_completions', JSON.stringify(parsedCompletions));
-      }
-
-      const calculatedXp = storedXp ? parseInt(storedXp, 10) : parsedCompletions.length * XP_CONFIG.BASE_XP_PER_COMPLETION;
-
-      setHabits(parsedHabits);
-      setCompletions(parsedCompletions);
-      setTotalXp(calculatedXp);
-      setLoading(false);
-      return;
-    }
-
-    // Authenticated Supabase data fetch
     try {
       const [habitsRes, completionsRes, xpRes] = await Promise.all([
         supabase
@@ -164,7 +110,7 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const loadedCompletions = (completionsRes.data || []) as HabitCompletion[];
 
       let sumXp = 0;
-      if (xpRes.data) {
+      if (xpRes.data && xpRes.data.length > 0) {
         sumXp = xpRes.data.reduce((acc, row) => acc + (row.xp_amount || 0), 0);
       } else {
         sumXp = loadedCompletions.length * XP_CONFIG.BASE_XP_PER_COMPLETION;
@@ -180,7 +126,7 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } finally {
       setLoading(false);
     }
-  }, [user, isDemoMode, todayDateStr, addNotification]);
+  }, [user, addNotification]);
 
   useEffect(() => {
     fetchData();
@@ -225,20 +171,6 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return { error: new Error('Habit name cannot be empty') };
     }
 
-    if (isDemoMode) {
-      const created: Habit = {
-        id: `demo-habit-${Date.now()}`,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        ...newHabit,
-      } as Habit;
-      const updatedList = [...habits, created];
-      setHabits(updatedList);
-      localStorage.setItem('init_habits_demo_habits', JSON.stringify(updatedList));
-      addNotification(`Created habit: ${created.name}`, 'success');
-      return { error: null };
-    }
-
     try {
       const { data, error: insertError } = await supabase
         .from('habits')
@@ -265,13 +197,6 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setHabits(prev =>
       prev.map(h => (h.id === id ? { ...h, ...updates, updated_at: new Date().toISOString() } : h))
     );
-
-    if (isDemoMode) {
-      const updatedList = habits.map(h => (h.id === id ? { ...h, ...updates } : h));
-      localStorage.setItem('init_habits_demo_habits', JSON.stringify(updatedList));
-      addNotification('Habit updated', 'success');
-      return { error: null };
-    }
 
     try {
       const { error: updateError } = await supabase
@@ -301,15 +226,6 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Optimistic delete
     setHabits(prev => prev.filter(h => h.id !== id));
     setCompletions(prev => prev.filter(c => c.habit_id !== id));
-
-    if (isDemoMode) {
-      const updatedList = habits.filter(h => h.id !== id);
-      const updatedCompletions = completions.filter(c => c.habit_id !== id);
-      localStorage.setItem('init_habits_demo_habits', JSON.stringify(updatedList));
-      localStorage.setItem('init_habits_demo_completions', JSON.stringify(updatedCompletions));
-      addNotification('Habit deleted', 'info');
-      return { error: null };
-    }
 
     try {
       const { error: deleteError } = await supabase
@@ -344,10 +260,6 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return updateHabit(id, { is_favorite: !target.is_favorite });
   };
 
-  // Toggle completion on target date (defaults to selectedDate)
-  // Implements rule: "Completing a habit updates the selected date, not automatically today's date."
-  // Implements rule: "Undoing completion removes the correct completion record."
-  // Implements rule: "XP must never be awarded twice for the same completion."
   const toggleCompletion = async (habitId: string, targetDate: string = selectedDate) => {
     if (!user) return { error: new Error('User not logged in') };
 
@@ -367,12 +279,6 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       setCompletions(updatedCompletions);
       setTotalXp(updatedXp);
-
-      if (isDemoMode) {
-        localStorage.setItem('init_habits_demo_completions', JSON.stringify(updatedCompletions));
-        localStorage.setItem('init_habits_demo_xp', String(updatedXp));
-        return { error: null };
-      }
 
       try {
         const { error: delError } = await supabase
@@ -407,7 +313,7 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setCompletions(updatedCompletions);
       setTotalXp(updatedXp);
 
-      // Trigger small delightful celebratory particle
+      // Particle celebration
       try {
         confetti({
           particleCount: 28,
@@ -417,13 +323,7 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           disableForReducedMotion: true,
         });
       } catch {
-        // Safe if canvas not available
-      }
-
-      if (isDemoMode) {
-        localStorage.setItem('init_habits_demo_completions', JSON.stringify(updatedCompletions));
-        localStorage.setItem('init_habits_demo_xp', String(updatedXp));
-        return { error: null };
+        // Safe fallback
       }
 
       try {
@@ -439,7 +339,6 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         if (insertError) throw insertError;
 
-        // Replace tempId with actual server id
         setCompletions(prev =>
           prev.map(c => (c.id === tempId ? (data as HabitCompletion) : c))
         );
@@ -472,11 +371,6 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     setHabits(updatedWithPosition);
 
-    if (isDemoMode) {
-      localStorage.setItem('init_habits_demo_habits', JSON.stringify(updatedWithPosition));
-      return;
-    }
-
     try {
       const updates = reordered.map((h, index) => ({
         id: h.id,
@@ -506,20 +400,6 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       is_favorite: h.is_favorite,
       position: habits.length + i + 1,
     }));
-
-    if (isDemoMode) {
-      const createdList: Habit[] = newHabitsToCreate.map((item, idx) => ({
-        id: `demo-habit-${Date.now()}-${idx}`,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        ...item,
-      } as Habit));
-      const combined = [...habits, ...createdList];
-      setHabits(combined);
-      localStorage.setItem('init_habits_demo_habits', JSON.stringify(combined));
-      addNotification(`Added ${createdList.length} habits!`, 'success');
-      return;
-    }
 
     try {
       const { data, error: insertError } = await supabase

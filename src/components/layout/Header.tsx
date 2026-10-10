@@ -8,9 +8,9 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ activeTab }) => {
-  const { user, profile, isDemoMode, connectionStatus } = useAuth();
+  const { user, profile, connectionStatus } = useAuth();
 
-  const username = profile?.username || (user?.email ? user.email.split('@')[0] : 'guest');
+  const username = profile?.username || (user?.email ? user.email.split('@')[0] : 'user');
   const commandMap: Record<TabType, string> = {
     habits: 'daily',
     stats: 'stats --all',
@@ -18,18 +18,6 @@ export const Header: React.FC<HeaderProps> = ({ activeTab }) => {
   };
 
   const getStatusBadge = () => {
-    if (isDemoMode) {
-      return (
-        <span
-          className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs rounded border border-amber-900/60 bg-amber-950/30 text-amber-400 font-mono"
-          title="Running in local offline preview mode. Add Supabase credentials in .env to persist to database."
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-          DEMO_MODE
-        </span>
-      );
-    }
-
     switch (connectionStatus) {
       case 'connected':
         return (

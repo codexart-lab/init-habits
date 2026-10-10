@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Terminal, KeyRound, Mail, ArrowRight, ShieldCheck, Play, Settings, Database, X, Check } from 'lucide-react';
+import { Terminal, KeyRound, Mail, ArrowRight, ShieldCheck, Settings, Database, X, Check } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { isSupabaseConfigured, getActiveSupabaseConfig, saveCustomSupabaseConfig } from '../../lib/supabase';
 
 export const AuthView: React.FC = () => {
-  const { signIn, signUp, resetPassword, enableDemoMode } = useAuth();
+  const { signIn, signUp, resetPassword } = useAuth();
 
   const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
   const [email, setEmail] = useState('');
@@ -39,7 +39,7 @@ export const AuthView: React.FC = () => {
     setSuccessMessage('');
 
     if (!isSupabaseConfigured) {
-      setErrorMessage('Supabase is not configured yet. Click "Connect Supabase" below or launch the local sandbox.');
+      setErrorMessage('Supabase is not configured yet. Click "Connect Supabase" below to configure your credentials.');
       setShowConfigModal(true);
       return;
     }
@@ -256,34 +256,21 @@ export const AuthView: React.FC = () => {
           </button>
         </form>
 
-        {/* Demo Mode / Offline Option & Cloudflare setup helper */}
-        <div className="p-4 border-t border-[#181d19] bg-[#080808] flex flex-col gap-2">
-          <div className="text-[11px] text-zinc-500 text-center">
-            {isSupabaseConfigured
-              ? '// Want to test without creating an account?'
-              : '// Supabase not detected yet. Choose an option:'}
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {!isSupabaseConfigured && (
+          <div className="p-4 border-t border-[#181d19] bg-[#080808] flex flex-col gap-2">
+            <div className="text-[11px] text-zinc-500 text-center">
+              // Supabase project connection required to authenticate:
+            </div>
             <button
               type="button"
               onClick={() => setShowConfigModal(true)}
-              className="py-2 px-2.5 text-xs rounded border border-[#1f2421] bg-[#121212] text-zinc-300 hover:text-white hover:border-[#4ADE65] transition-colors flex items-center justify-center gap-1.5"
+              className="w-full py-2 px-3 text-xs rounded border border-[#1f2421] bg-[#121212] text-zinc-300 hover:text-white hover:border-[#4ADE65] transition-colors flex items-center justify-center gap-1.5"
             >
               <Database className="w-3.5 h-3.5 text-[#4ADE65]" />
-              <span>Connect Supabase</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={enableDemoMode}
-              className="py-2 px-2.5 text-xs rounded border border-[#166534] bg-[#071609] text-[#4ADE65] hover:bg-[#0c2413] transition-colors flex items-center justify-center gap-1.5"
-            >
-              <Play className="w-3 h-3 fill-[#4ADE65]" />
-              <span>Launch Demo Mode</span>
+              <span>Connect Supabase Project</span>
             </button>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Security note */}
