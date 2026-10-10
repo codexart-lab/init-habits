@@ -1,5 +1,6 @@
 -- Migration: 20261010_init_habits.sql
 -- Description: Core schema, tables, constraints, RLS policies, triggers, and XP ledger for init.Habits
+-- Fully idempotent: safe to execute multiple times in Supabase SQL Editor
 
 -- 1. Profiles Table
 CREATE TABLE IF NOT EXISTS public.profiles (
@@ -72,14 +73,18 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Triggers for updated_at (with DROP IF EXISTS to ensure idempotency)
+DROP TRIGGER IF EXISTS on_profiles_updated ON public.profiles;
 CREATE TRIGGER on_profiles_updated
     BEFORE UPDATE ON public.profiles
     FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
+DROP TRIGGER IF EXISTS on_user_settings_updated ON public.user_settings;
 CREATE TRIGGER on_user_settings_updated
     BEFORE UPDATE ON public.user_settings
     FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
+DROP TRIGGER IF EXISTS on_habits_updated ON public.habits;
 CREATE TRIGGER on_habits_updated
     BEFORE UPDATE ON public.habits
     FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
@@ -102,6 +107,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+DROP TRIGGER IF EXISTS on_habit_completion_xp ON public.habit_completions;
 CREATE TRIGGER on_habit_completion_xp
     AFTER INSERT OR DELETE ON public.habit_completions
     FOR EACH ROW EXECUTE FUNCTION public.handle_completion_xp();
@@ -129,13 +135,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Trigger to execute on signup
+-- Trigger on auth.users for signup
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- Row Level Security (RLS)
+-- Enable Row Level Security (RLS)
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.habits ENABLE ROW LEVEL SECURITY;
@@ -143,53 +149,65 @@ ALTER TABLE public.habit_completions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.xp_ledger ENABLE ROW LEVEL SECURITY;
 
 -- Profiles policies
+DROP POLICY IF EXISTS "Users can view their own profile" ON public.profiles;
 CREATE POLICY "Users can view their own profile"
     ON public.profiles FOR SELECT
     USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
 CREATE POLICY "Users can update their own profile"
     ON public.profiles FOR UPDATE
     USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can insert their own profile" ON public.profiles;
 CREATE POLICY "Users can insert their own profile"
     ON public.profiles FOR INSERT
     WITH CHECK (auth.uid() = id);
 
 -- User Settings policies
+DROP POLICY IF EXISTS "Users can view their own settings" ON public.user_settings;
 CREATE POLICY "Users can view their own settings"
     ON public.user_settings FOR SELECT
     USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update their own settings" ON public.user_settings;
 CREATE POLICY "Users can update their own settings"
     ON public.user_settings FOR UPDATE
     USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert their own settings" ON public.user_settings;
 CREATE POLICY "Users can insert their own settings"
     ON public.user_settings FOR INSERT
     WITH CHECK (auth.uid() = user_id);
 
 -- Habits policies
+DROP POLICY IF EXISTS "Users can view their own habits" ON public.habits;
 CREATE POLICY "Users can view their own habits"
     ON public.habits FOR SELECT
     USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert their own habits" ON public.habits;
 CREATE POLICY "Users can insert their own habits"
     ON public.habits FOR INSERT
     WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update their own habits" ON public.habits;
 CREATE POLICY "Users can update their own habits"
     ON public.habits FOR UPDATE
     USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete their own habits" ON public.habits;
 CREATE POLICY "Users can delete their own habits"
     ON public.habits FOR DELETE
     USING (auth.uid() = user_id);
 
 -- Habit Completions policies
+DROP POLICY IF EXISTS "Users can view their own completions" ON public.habit_completions;
 CREATE POLICY "Users can view their own completions"
     ON public.habit_completions FOR SELECT
     USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert their own completions for owned habits" ON public.habit_completions;
 CREATE POLICY "Users can insert their own completions for owned habits"
     ON public.habit_completions FOR INSERT
     WITH CHECK (
@@ -201,11 +219,13 @@ CREATE POLICY "Users can insert their own completions for owned habits"
         )
     );
 
+DROP POLICY IF EXISTS "Users can delete their own completions" ON public.habit_completions;
 CREATE POLICY "Users can delete their own completions"
     ON public.habit_completions FOR DELETE
     USING (auth.uid() = user_id);
 
 -- XP Ledger policies (Read-only for users; inserts/deletes occur through security definer trigger)
+DROP POLICY IF EXISTS "Users can view their own XP ledger" ON public.xp_ledger;
 CREATE POLICY "Users can view their own XP ledger"
     ON public.xp_ledger FOR SELECT
     USING (auth.uid() = user_id);
