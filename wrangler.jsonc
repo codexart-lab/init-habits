@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "init-habits",
+  "pages_build_output_dir": "./dist",
+  "compatibility_date": "2026-10-10",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  // Environment variables for Supabase integration can be bound here or set in the Cloudflare Dashboard / .dev.vars
+  "vars": {
+    // "VITE_SUPABASE_URL": "https://your-project-id.supabase.co",
+    // "VITE_SUPABASE_PUBLISHABLE_KEY": "your-publishable-key"
+  }
+}
