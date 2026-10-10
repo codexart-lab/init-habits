@@ -1,0 +1,112 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-primary: #050505;
+    --bg-card: #0a0a0a;
+    --bg-surface: #121212;
+    --border-subtle: #1f2421;
+    --border-highlight: #2a332c;
+    --accent-neon: #4ADE65;
+    --accent-dim: #166534;
+    --accent-glow: rgba(74, 222, 101, 0.15);
+    --text-primary: #f4f4f5;
+    --text-secondary: #a1a1aa;
+    --text-muted: #71717a;
+  }
+
+  [data-theme="matrix"] {
+    --accent-neon: #10B981;
+    --accent-dim: #064E3B;
+    --accent-glow: rgba(16, 185, 129, 0.15);
+  }
+
+  [data-theme="amber-crt"] {
+    --accent-neon: #F59E0B;
+    --accent-dim: #78350F;
+    --accent-glow: rgba(245, 158, 11, 0.15);
+  }
+
+  [data-theme="cyberpunk-cyan"] {
+    --accent-neon: #06B6D4;
+    --accent-dim: #164E63;
+    --accent-glow: rgba(6, 182, 212, 0.15);
+  }
+
+  [data-theme="monochrome"] {
+    --accent-neon: #E4E4E7;
+    --accent-dim: #3F3F46;
+    --accent-glow: rgba(228, 228, 231, 0.15);
+  }
+
+  body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', 'IBM Plex Mono', monospace;
+    letter-spacing: -0.01em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    min-height: 100vh;
+  }
+}
+
+/* Custom terminal scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #050505;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-neon);
+}
+
+/* Terminal utility classes */
+.terminal-border {
+  border: 1px solid var(--border-subtle);
+}
+
+.terminal-border-accent {
+  border: 1px solid var(--accent-neon);
+}
+
+.terminal-glow {
+  box-shadow: 0 0 15px var(--accent-glow);
+}
+
+.text-accent {
+  color: var(--accent-neon);
+}
+
+.bg-accent {
+  background-color: var(--accent-neon);
+}
+
+.border-accent {
+  border-color: var(--accent-neon);
+}
+
+/* CRT subtle line styling if desired */
+.crt-overlay {
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%, 
+    rgba(0, 0, 0, 0.25) 50%
+  ), linear-gradient(
+    90deg,
+    rgba(255, 0, 0, 0.03),
+    rgba(0, 255, 0, 0.01),
+    rgba(0, 0, 255, 0.03)
+  );
+  background-size: 100% 2px, 3px 100%;
+  pointer-events: none;
+}
