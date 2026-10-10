@@ -131,46 +131,7 @@
 The database migration is located at:
 [`supabase/migrations/20261010_init_habits.sql`](file:///workspace/habit-tracker/supabase/migrations/20261010_init_habits.sql)
 
-### Tables
-1. **`profiles`**:
-   - `id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE`
-   - `username TEXT NOT NULL DEFAULT 'user'`
-   - `timezone TEXT NOT NULL DEFAULT 'UTC'`
-   - `created_at TIMESTAMPTZ`, `updated_at TIMESTAMPTZ`
-2. **`user_settings`**:
-   - `user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE`
-   - `daily_goal INTEGER NOT NULL DEFAULT 70`
-   - `timezone TEXT NOT NULL DEFAULT 'UTC'`
-   - `preferences JSONB NOT NULL DEFAULT '{"theme": "neon-green", "sound_enabled": false, "compact_view": true}'::jsonb`
-   - `updated_at TIMESTAMPTZ`
-3. **`habits`**:
-   - `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`
-   - `user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE`
-   - `name TEXT NOT NULL`
-   - `emoji TEXT NOT NULL DEFAULT '🎯'`
-   - `description TEXT DEFAULT ''`
-   - `category TEXT DEFAULT 'General'`
-   - `target_value NUMERIC DEFAULT 1`
-   - `target_unit TEXT DEFAULT 'times'`
-   - `is_active BOOLEAN NOT NULL DEFAULT true`
-   - `is_favorite BOOLEAN NOT NULL DEFAULT false`
-   - `position INTEGER NOT NULL DEFAULT 0`
-   - `created_at TIMESTAMPTZ`, `updated_at TIMESTAMPTZ`
-4. **`habit_completions`**:
-   - `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`
-   - `user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE`
-   - `habit_id UUID NOT NULL REFERENCES habits(id) ON DELETE CASCADE`
-   - `completed_on DATE NOT NULL`
-   - `created_at TIMESTAMPTZ`
-   - **Constraint**: `UNIQUE (habit_id, completed_on)` — guarantees at most 1 completion per habit per calendar date.
-5. **`xp_ledger`**:
-   - `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`
-   - `user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE`
-   - `habit_id UUID NOT NULL REFERENCES habits(id) ON DELETE CASCADE`
-   - `completion_id UUID NOT NULL REFERENCES habit_completions(id) ON DELETE CASCADE`
-   - `xp_amount INTEGER NOT NULL DEFAULT 15`
-   - `created_at TIMESTAMPTZ`
-   - **Constraint**: `UNIQUE (user_id, habit_id, completion_id)` — strictly prevents duplicate XP awards.
+
 
 ### Option A: Supabase Cloud (Managed)
 
@@ -214,23 +175,6 @@ You can run `init.Habits` with your own self-hosted Supabase instance (via Docke
      - Set `ADDITIONAL_REDIRECT_URLS=https://your-frontend-domain.com/**`
 5. **Connect Directly in the Web UI**:
    - Open your deployed `init.Habits` web app, click **"Connect Supabase"** (or the **⚙ settings** icon) on the login screen, enter your self-hosted URL and anon key, and click **Save & Connect**. Credentials persist in your local browser storage and connect immediately!
-
----
-
-### Environment Variables (.env)
-
-Create a `.env` file in the project root:
-```bash
-cp .env.example .env
-```
-Add your credentials:
-```env
-# Supabase Cloud or Self-Hosted URL
-VITE_SUPABASE_URL=https://your-project-id.supabase.co
-
-# Supabase Anon / Publishable API Key
-VITE_SUPABASE_PUBLISHABLE_KEY=your-actual-anon-key
-```
 
 ---
 
